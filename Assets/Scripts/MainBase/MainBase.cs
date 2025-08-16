@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(Scanner), typeof(ResourceStorage))]
+[RequireComponent(typeof(Scanner), typeof(ResourceStorage), typeof(BotRetriever))]
 public class MainBase : MonoBehaviour
 {
     [Header("Settings")]
@@ -12,15 +12,61 @@ public class MainBase : MonoBehaviour
 
     private Scanner _scanner;
     private ResourceStorage _storage;
+    private ResourceProvider _resourceProvider;
+    private BotRetriever _botRetriever;
     private List<CollectingBot> _bots = new List<CollectingBot>();
 
     private void Start()
     {
         _scanner = GetComponent<Scanner>();
         _storage = GetComponent<ResourceStorage>();
+        _botRetriever = GetComponent<BotRetriever>();
+        _resourceProvider = GetComponent<ResourceProvider>();
+
+        _resourceSpawner.OnResourceSpawned += _resourceProvider.RegisterResource;
+        _botRetriever.OnBotArrived += OnBotArrived;
+
         _resourceSpawner.StartSpawning();
         SpawnInitialUnits();
         StartCoroutine(WorkCycle());
+    }
+
+    private IEnumerator WorkCycle()
+    {
+        var wait = new WaitForSeconds(0.3f);
+
+        while (enabled)
+        {
+            if (_storage.IsFull == false)
+            {
+                _scanner.Scan(_resourceProvider);
+                AssignTasksToFreeBots();
+            }
+
+            yield return wait;
+        }
+    }
+
+    private void AssignTasksToFreeBots()
+    {
+        if (_storage.IsFull)
+        {
+            foreach (CollectingBot bot in _bots)
+                bot.ReturnToBase();
+
+            return;
+        }
+
+        foreach (CollectingBot bot in _bots)
+        {
+            if (bot.IsFree)
+            {
+                if (_resourceProvider.TryGetAvailableResource(out var resource))
+                    bot.AssignResource(resource);
+                else
+                    bot.ReturnToBase();
+            }
+        }
     }
 
     private void SpawnInitialUnits()
@@ -28,54 +74,37 @@ public class MainBase : MonoBehaviour
         for (int i = 0; i < _initialUnitsCount; i++)
         {
             CollectingBot bot = _unitSpawner.SpawnUnit(transform.position);
-            bot.Initialize(transform, OnResourceCollected);
+            bot.Initialize(transform);
             _bots.Add(bot);
         }
     }
 
-    private IEnumerator WorkCycle()
+    private void OnBotArrived(CollectingBot bot)
     {
-        var wait = new WaitForSeconds(0.5f);
-
-        while (enabled)
-        {
-            ScanAndAssignResources();
-            yield return wait;
-        }
-    }
-
-    private void ScanAndAssignResources()
-    {
-        if (_storage.IsFull)
+        if (bot == null)
             return;
 
-        var resources = _scanner.FindResourcesInCollectionArea();
-        _storage.UpdateResources(resources);
-
-        foreach (CollectingBot bot in _bots)
+        if (bot.HasResource)
         {
-            if (bot.IsFree && _storage.HasAvailableResources)
-            {
-                Resource resource = _storage.GetUnassignedResource();
+            Resource resource = bot.TakeResource();
 
-                if (resource != null && resource.CanBeCollected())
+            if (resource != null)
+            {
+                if (_storage.TryAddResource(resource.Amount))
                 {
-                    bot.AssignResource(resource);
-                    _storage.MarkResourceAsAssigned(resource);
+                    _resourceProvider.RemoveResource(resource);
+                }
+                else
+                {
+                    Debug.LogWarning("The storage is full! The resource has not been added");
+                    Destroy(resource.gameObject);
                 }
             }
         }
-    }
 
-    private void OnResourceCollected(int amount)
-    {
-        if (_storage.TryAddResource(amount) == false)
-            Debug.Log("The storage is full!");
-    }
-
-    public void RegisterBot(CollectingBot bot)
-    {
-        if (_bots.Contains(bot) == false)
-            _bots.Add(bot);
+        if (_storage.IsFull == false && _resourceProvider.TryGetAvailableResource(out var newResource))
+            bot.AssignResource(newResource);
+        else
+            bot.ReturnToBase();
     }
 }

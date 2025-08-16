@@ -4,113 +4,83 @@ using UnityEngine;
 public class CollectingBot : MonoBehaviour
 {
     private Transform _basePosition;
-    private Resource _assignedResource;   
+    private Resource _currentResource;
     private MoverToTarget _mover;
+    private bool _hasPickedUpResource;
 
-    public bool IsFree { get; private set; } = true;
-    private bool _carryingResource = false;
+    public bool IsFree => _currentResource == null;
+    public bool HasResource => _currentResource != null && _hasPickedUpResource;
 
-    private System.Action<int> _onResourceDelivered;
-
-    public void Initialize(Transform basePosition, System.Action<int> onResourceDelivered)
+    public void Initialize(Transform basePosition)
     {
         _basePosition = basePosition;
-        _onResourceDelivered = onResourceDelivered;
         _mover = GetComponent<MoverToTarget>();
-        ResetBot();
+        _hasPickedUpResource = false;
     }
 
     public void AssignResource(Resource resource)
     {
-        if (resource == null)
+        if (resource == null || resource.gameObject == null)
             return;
 
-        _assignedResource = resource;
-        IsFree = false;
-        _carryingResource = false;
+        _currentResource = resource;
+        _hasPickedUpResource = false;
         _mover.SetTarget(resource.transform);
+    }
+
+    public Resource TakeResource()
+    {
+        Resource resource = _currentResource;
+        _currentResource = null;
+        _hasPickedUpResource = false;
+
+        return resource;
+    }
+
+    public void ReturnToBase()
+    {
+        _mover.SetTarget(_basePosition);
     }
 
     private void Update()
     {
-        if (_assignedResource == null)
+        if (_currentResource != null)
         {
-            if (IsFree == false)
-                ResetBot();
-
-            return;
-        }
-
-        if (_carryingResource == false)
-        {
-            if (_assignedResource == null || _assignedResource.gameObject == null)
+            if (_currentResource.gameObject == null)
             {
-                ResetBot();
+                _currentResource = null;
+                ReturnToBase();
 
                 return;
             }
 
-            float distanceToResource = Vector3.Distance(transform.position, _assignedResource.transform.position);
-
-            if (distanceToResource <= 1f)
+            if (_hasPickedUpResource == false)
             {
-                PickUp();
+                float distance = Vector3.Distance(transform.position, _currentResource.transform.position);
+
+                if (distance <= 1.5f)
+                    PickUpResource();
             }
         }
-        else
-        {
-            if (_basePosition == null)
-                return;
-
-            float distToBase = Vector3.Distance(transform.position, _basePosition.transform.position);
-
-            if (distToBase <= 1f)
-                Deliver();
-        }
     }
 
-    private void ResetBot()
+    private void PickUpResource()
     {
-        if (_assignedResource != null)
-            _assignedResource.Unassign();
-
-        _assignedResource = null;
-        _carryingResource = false;
-        IsFree = true;
-
-        if (_basePosition != null && _mover != null)
-            _mover.SetTarget(_basePosition.transform);
-    }
-
-    private void PickUp()
-    {
-        if (_assignedResource == null)
+        if (_currentResource == null)
             return;
 
-        _assignedResource.transform.SetParent(transform);
-        _assignedResource.transform.localPosition = Vector3.up * 0.5f;
-        _mover.SetTarget(_basePosition.transform);
-        _carryingResource = true;
+        _currentResource.transform.SetParent(transform);
+        _currentResource.transform.localPosition = Vector3.up * 0.5f;
+        _hasPickedUpResource = true;
+        _mover.SetTarget(_basePosition);
     }
 
-    private void Deliver()
+    private void OnTriggerEnter(Collider other)
     {
-        if (_assignedResource == null || _onResourceDelivered == null)
+        if (other.transform == _basePosition && HasResource)
         {
-            ResetBot();
-            return;
+            BotRetriever retriever = _basePosition.GetComponent<BotRetriever>();
+            retriever?.HandleBotArrival(this);
         }
-
-        Resource resourceToDeliver = _assignedResource;
-        int amount = resourceToDeliver.Amount;
-
-        _assignedResource = null;
-        _carryingResource = false;
-        IsFree = true;
-
-        if (resourceToDeliver.gameObject != null)
-            Destroy(resourceToDeliver.gameObject);
-
-        _onResourceDelivered.Invoke(amount);
     }
 }

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Scanner : MonoBehaviour
@@ -6,29 +5,25 @@ public class Scanner : MonoBehaviour
     [SerializeField] private Vector3 _scanAreaSize = new Vector3(20, 2, 20);
     [SerializeField] private LayerMask _resourceLayer;
 
-    public List<Resource> FindResourcesInCollectionArea()
-    {
-        Vector3 scanCenter = transform.position;
-        Vector3 halfScanSize = _scanAreaSize / 2f;
+    private Collider[] _collidersBuffer = new Collider[20];
 
-        Collider[] potentialResourceColliders = Physics.OverlapBox(
-            scanCenter,
-            halfScanSize,
+    public void Scan(ResourceProvider provider)
+    {
+        int count = Physics.OverlapBoxNonAlloc(
+            transform.position,
+            _scanAreaSize / 2f,
+            _collidersBuffer,
             Quaternion.identity,
             _resourceLayer
         );
 
-        List<Resource> foundResources = new List<Resource>(potentialResourceColliders.Length);
-
-        foreach (var collider in potentialResourceColliders)
+        for (int i = 0; i < count; i++)
         {
-            Resource resource = collider.GetComponent<Resource>();
-
-            if (resource != null)
-                foundResources.Add(resource);
+            if (_collidersBuffer[i].TryGetComponent<Resource>(out var resource))
+            {
+                provider.RegisterResource(resource);
+            }
         }
-
-        return foundResources;
     }
 
     private void OnDrawGizmos()

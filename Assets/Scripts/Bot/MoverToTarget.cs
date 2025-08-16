@@ -15,6 +15,7 @@ public class MoverToTarget : MonoBehaviour
     {
         if (_target != null)
         {
+            Debug.DrawLine(transform.position, _target.position, Color.red);
             transform.position = Vector3.MoveTowards(transform.position, _target.position, _speed * Time.deltaTime);
 
             Vector3 direction = (_target.position - transform.position).normalized;
