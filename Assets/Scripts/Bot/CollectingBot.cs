@@ -44,23 +44,18 @@ public class CollectingBot : MonoBehaviour
 
     private void Update()
     {
-        if (_currentResource != null)
+        if (_currentResource == null)
         {
-            if (_currentResource.gameObject == null)
-            {
-                _currentResource = null;
-                ReturnToBase();
+            ReturnToBase();
+            return;
+        }
 
-                return;
-            }
+        if (_hasPickedUpResource == false)
+        {
+            float distance = Vector3.Distance(transform.position, _currentResource.transform.position);
 
-            if (_hasPickedUpResource == false)
-            {
-                float distance = Vector3.Distance(transform.position, _currentResource.transform.position);
-
-                if (distance <= 1.5f)
-                    PickUpResource();
-            }
+            if (distance <= 1.5f)
+                PickUpResource();
         }
     }
 
@@ -73,14 +68,5 @@ public class CollectingBot : MonoBehaviour
         _currentResource.transform.localPosition = Vector3.up * 0.5f;
         _hasPickedUpResource = true;
         _mover.SetTarget(_basePosition);
-    }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.transform == _basePosition && HasResource)
-        {
-            BotRetriever retriever = _basePosition.GetComponent<BotRetriever>();
-            retriever?.HandleBotArrival(this);
-        }
     }
 }

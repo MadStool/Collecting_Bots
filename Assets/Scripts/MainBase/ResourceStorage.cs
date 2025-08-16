@@ -2,14 +2,13 @@
 
 public class ResourceStorage : MonoBehaviour
 {
-    public event System.Action ResourceAdded;
+    public event System.Action<int> ResourceAdded;
+
     private int _totalCollectedResources = 0;
 
-    public bool TryAddResource()
+    public void AddResource()
     {
         _totalCollectedResources++;
-        ResourceAdded?.Invoke();
-
-        return true;
+        ResourceAdded?.Invoke(_totalCollectedResources);
     }
 }

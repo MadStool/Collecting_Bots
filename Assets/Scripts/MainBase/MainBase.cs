@@ -27,16 +27,16 @@ public class MainBase : MonoBehaviour
 
         _botRetriever.BotArrived += OnBotArrived;
         _storage.ResourceAdded += OnResourceAdded;
-        _resourceSpawner.StartSpawning();
+        _resourceCounterDisplay.UpdateCounter(0);
 
+        _resourceSpawner.StartSpawning();
         SpawnInitialUnits();
         StartCoroutine(ScanningRoutine());
     }
 
-    private void OnResourceAdded()
+    private void OnResourceAdded(int count)
     {
-        if (_resourceCounterDisplay != null)
-            _resourceCounterDisplay.AddResource();
+        _resourceCounterDisplay.UpdateCounter(count);
     }
 
     private IEnumerator ScanningRoutine()
@@ -59,14 +59,8 @@ public class MainBase : MonoBehaviour
         if (bot.HasResource)
         {
             Resource resource = bot.TakeResource();
-
-            if (resource != null)
-            {
-                if (_storage.TryAddResource())
-                    _resourceProvider.RemoveResource(resource);
-                else
-                    Destroy(resource.gameObject);
-            }
+            _storage.AddResource();
+            _resourceProvider.RemoveResource(resource);
         }
 
         AddFreeBot(bot);
@@ -99,7 +93,7 @@ public class MainBase : MonoBehaviour
 
     private void TryAssignResourceToBot(CollectingBot bot)
     {
-        if (_resourceProvider.TryAssignResource(out var resource))
+        if (_resourceProvider.TryAssignResource(out Resource resource))
         {
             bot.AssignResource(resource);
             _freeBots.Remove(bot);
@@ -108,5 +102,11 @@ public class MainBase : MonoBehaviour
         {
             bot.ReturnToBase();
         }
+    }
+
+    private void OnDestroy()
+    {
+        _botRetriever.BotArrived -= OnBotArrived;
+        _storage.ResourceAdded -= OnResourceAdded;
     }
 }

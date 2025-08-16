@@ -4,16 +4,16 @@ public class BotRetriever : MonoBehaviour
 {
     public event System.Action<CollectingBot> BotArrived;
 
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.TryGetComponent<CollectingBot>(out var bot))
-        {
-            HandleBotArrival(bot);
-        }
-    }
-
-    public void HandleBotArrival(CollectingBot bot)
+    public void TriggerBotArrived(CollectingBot bot)
     {
         BotArrived?.Invoke(bot);
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.TryGetComponent(out CollectingBot bot) && bot.HasResource)
+        {
+            TriggerBotArrived(bot);
+        }
     }
 }

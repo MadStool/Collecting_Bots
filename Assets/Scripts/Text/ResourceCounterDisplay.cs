@@ -4,23 +4,11 @@ using TMPro;
 public class ResourceCounterDisplay : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI _counterText;
-    [SerializeField] private string _prefixText = "Resources based on: ";
-    private int _totalCollectedResources = 0;
+    [SerializeField] private string _prefixText = "Resources: ";
 
-    private void Awake()
-    {
-        UpdateCounterText();
-    }
-
-    public void AddResource()
-    {
-        _totalCollectedResources++;
-        UpdateCounterText();
-    }
-
-    private void UpdateCounterText()
+    public void UpdateCounter(int count)
     {
         if (_counterText != null)
-            _counterText.text = _prefixText + _totalCollectedResources.ToString();
+            _counterText.text = _prefixText + count;
     }
 }
