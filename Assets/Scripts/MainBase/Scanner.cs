@@ -19,10 +19,8 @@ public class Scanner : MonoBehaviour
 
         for (int i = 0; i < count; i++)
         {
-            if (_collidersBuffer[i].TryGetComponent<Resource>(out var resource))
-            {
+            if (_collidersBuffer[i].TryGetComponent<Resource>(out Resource resource))
                 provider.RegisterResource(resource);
-            }
         }
     }
 

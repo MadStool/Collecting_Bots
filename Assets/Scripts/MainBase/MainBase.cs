@@ -1,6 +1,6 @@
+using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 [RequireComponent(typeof(Scanner), typeof(ResourceStorage), typeof(BotRetriever))]
 public class MainBase : MonoBehaviour
@@ -9,12 +9,14 @@ public class MainBase : MonoBehaviour
     [SerializeField] private ResourceSpawner _resourceSpawner;
     [SerializeField] private UnitSpawner _unitSpawner;
     [SerializeField] private int _initialUnitsCount = 3;
+    [SerializeField] private ResourceCounterDisplay _resourceCounterDisplay;
 
     private Scanner _scanner;
     private ResourceStorage _storage;
     private ResourceProvider _resourceProvider;
     private BotRetriever _botRetriever;
     private List<CollectingBot> _bots = new List<CollectingBot>();
+    private List<CollectingBot> _freeBots = new List<CollectingBot>();
 
     private void Start()
     {
@@ -23,59 +25,29 @@ public class MainBase : MonoBehaviour
         _botRetriever = GetComponent<BotRetriever>();
         _resourceProvider = GetComponent<ResourceProvider>();
 
-        _resourceSpawner.OnResourceSpawned += _resourceProvider.RegisterResource;
-        _botRetriever.OnBotArrived += OnBotArrived;
-
+        _botRetriever.BotArrived += OnBotArrived;
+        _storage.ResourceAdded += OnResourceAdded;
         _resourceSpawner.StartSpawning();
+
         SpawnInitialUnits();
-        StartCoroutine(WorkCycle());
+        StartCoroutine(ScanningRoutine());
     }
 
-    private IEnumerator WorkCycle()
+    private void OnResourceAdded()
     {
-        var wait = new WaitForSeconds(0.3f);
+        if (_resourceCounterDisplay != null)
+            _resourceCounterDisplay.AddResource();
+    }
+
+    private IEnumerator ScanningRoutine()
+    {
+        var wait = new WaitForSeconds(0.5f);
 
         while (enabled)
         {
-            if (_storage.IsFull == false)
-            {
-                _scanner.Scan(_resourceProvider);
-                AssignTasksToFreeBots();
-            }
-
+            _scanner.Scan(_resourceProvider);
+            AssignResourcesToFreeBots();
             yield return wait;
-        }
-    }
-
-    private void AssignTasksToFreeBots()
-    {
-        if (_storage.IsFull)
-        {
-            foreach (CollectingBot bot in _bots)
-                bot.ReturnToBase();
-
-            return;
-        }
-
-        foreach (CollectingBot bot in _bots)
-        {
-            if (bot.IsFree)
-            {
-                if (_resourceProvider.TryGetAvailableResource(out var resource))
-                    bot.AssignResource(resource);
-                else
-                    bot.ReturnToBase();
-            }
-        }
-    }
-
-    private void SpawnInitialUnits()
-    {
-        for (int i = 0; i < _initialUnitsCount; i++)
-        {
-            CollectingBot bot = _unitSpawner.SpawnUnit(transform.position);
-            bot.Initialize(transform);
-            _bots.Add(bot);
         }
     }
 
@@ -90,21 +62,51 @@ public class MainBase : MonoBehaviour
 
             if (resource != null)
             {
-                if (_storage.TryAddResource(resource.Amount))
-                {
+                if (_storage.TryAddResource())
                     _resourceProvider.RemoveResource(resource);
-                }
                 else
-                {
-                    Debug.LogWarning("The storage is full! The resource has not been added");
                     Destroy(resource.gameObject);
-                }
             }
         }
 
-        if (_storage.IsFull == false && _resourceProvider.TryGetAvailableResource(out var newResource))
-            bot.AssignResource(newResource);
+        AddFreeBot(bot);
+        TryAssignResourceToBot(bot);
+    }
+
+    private void SpawnInitialUnits()
+    {
+        for (int i = 0; i < _initialUnitsCount; i++)
+        {
+            CollectingBot bot = _unitSpawner.SpawnUnit(transform.position);
+            bot.Initialize(transform);
+            _bots.Add(bot);
+            _freeBots.Add(bot);
+            TryAssignResourceToBot(bot);
+        }
+    }
+
+    private void AddFreeBot(CollectingBot bot)
+    {
+        if (_freeBots.Contains(bot) == false)
+            _freeBots.Add(bot);
+    }
+
+    private void AssignResourcesToFreeBots()
+    {
+        for (int i = _freeBots.Count - 1; i >= 0; i--)
+            TryAssignResourceToBot(_freeBots[i]);
+    }
+
+    private void TryAssignResourceToBot(CollectingBot bot)
+    {
+        if (_resourceProvider.TryAssignResource(out var resource))
+        {
+            bot.AssignResource(resource);
+            _freeBots.Remove(bot);
+        }
         else
+        {
             bot.ReturnToBase();
+        }
     }
 }

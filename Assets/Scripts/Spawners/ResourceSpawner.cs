@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections;
 
 public class ResourceSpawner : MonoBehaviour
 {
@@ -8,11 +8,38 @@ public class ResourceSpawner : MonoBehaviour
     [SerializeField] private float _spawnRadius = 4f;
     [SerializeField] private Color _gizmoColor = Color.green;
 
-    public System.Action<Resource> OnResourceSpawned;
+    private Coroutine _spawningCoroutine;
+    private bool _isSpawningActive;
 
     public void StartSpawning()
     {
-        InvokeRepeating(nameof(SpawnResource), _spawnInterval, _spawnInterval);
+        if (_spawningCoroutine != null)
+            StopCoroutine(_spawningCoroutine);
+
+        _isSpawningActive = true;
+        _spawningCoroutine = StartCoroutine(SpawnResources());
+    }
+
+    public void StopSpawning()
+    {
+        _isSpawningActive = false;
+
+        if (_spawningCoroutine != null)
+        {
+            StopCoroutine(_spawningCoroutine);
+            _spawningCoroutine = null;
+        }
+    }
+
+    private IEnumerator SpawnResources()
+    {
+        while (_isSpawningActive)
+        {
+            yield return new WaitForSeconds(_spawnInterval);
+
+            if (_isSpawningActive)
+                SpawnResource();
+        }
     }
 
     private void SpawnResource()
@@ -23,7 +50,6 @@ public class ResourceSpawner : MonoBehaviour
             Random.Range(-_spawnRadius, _spawnRadius)
         );
         Resource resource = Instantiate(_resourcePrefab, spawnPosition, Quaternion.identity);
-        OnResourceSpawned?.Invoke(resource);
     }
 
     private void OnDrawGizmos()
@@ -31,4 +57,7 @@ public class ResourceSpawner : MonoBehaviour
         Gizmos.color = _gizmoColor;
         Gizmos.DrawWireSphere(transform.position, _spawnRadius);
     }
+
+    private void OnDisable() => StopSpawning();
+    private void OnDestroy() => StopSpawning();
 }

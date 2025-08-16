@@ -8,30 +8,37 @@ public class ResourceProvider : MonoBehaviour
 
     public void RegisterResource(Resource resource)
     {
-        if (resource == null || _assignedResources.Contains(resource) || _availableResources.Contains(resource))
+        if (resource == null || _assignedResources.Contains(resource))
             return;
 
-        _availableResources.Add(resource);
+        if (_availableResources.Contains(resource) == false)
+            _availableResources.Add(resource);
     }
 
-    public bool TryGetAvailableResource(out Resource resource)
+    public bool TryAssignResource(out Resource resource)
     {
-        _availableResources.RemoveAll(item => item == null);
-        _assignedResources.RemoveWhere(item => item == null);
+        resource = null;
 
-        foreach (Resource availableResource in _availableResources)
+        for (int i = _availableResources.Count - 1; i >= 0; i--)
         {
-            if (_assignedResources.Contains(availableResource) == false)
+            Resource current = _availableResources[i];
+
+            if (current == null)
             {
-                resource = availableResource;
-                _availableResources.Remove(resource);
+                _availableResources.RemoveAt(i);
+                continue;
+            }
+
+            if (_assignedResources.Contains(current) == false)
+            {
+                resource = current;
+                _availableResources.RemoveAt(i);
                 _assignedResources.Add(resource);
 
                 return true;
             }
         }
 
-        resource = null;
         return false;
     }
 
@@ -41,9 +48,7 @@ public class ResourceProvider : MonoBehaviour
             return;
 
         _assignedResources.Remove(resource);
-
-        if (resource.gameObject != null)
-            _availableResources.Add(resource);
+        RegisterResource(resource);
     }
 
     public void RemoveResource(Resource resource)

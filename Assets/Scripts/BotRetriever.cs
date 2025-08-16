@@ -2,12 +2,7 @@ using UnityEngine;
 
 public class BotRetriever : MonoBehaviour
 {
-    public event System.Action<CollectingBot> OnBotArrived;
-
-    public void HandleBotArrival(CollectingBot bot)
-    {
-        OnBotArrived?.Invoke(bot);
-    }
+    public event System.Action<CollectingBot> BotArrived;
 
     private void OnTriggerEnter(Collider other)
     {
@@ -15,5 +10,10 @@ public class BotRetriever : MonoBehaviour
         {
             HandleBotArrival(bot);
         }
+    }
+
+    public void HandleBotArrival(CollectingBot bot)
+    {
+        BotArrived?.Invoke(bot);
     }
 }
